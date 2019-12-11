@@ -38,6 +38,8 @@ type Conn interface {
 	// Send writes the command to the client's output buffer.
 	Send(commandName string, args ...interface{}) error
 
+	SendWithArguments(cmd string, numArgs int, args Arguments) error
+
 	// Flush flushes the output buffer to the Redis server.
 	Flush() error
 
@@ -53,6 +55,18 @@ type Argument interface {
 	// Implementations should typically return a []byte or string.
 	RedisArg() interface{}
 }
+
+type ArgumentWriter interface {
+	WriteString(_ string) error
+	WriteBytes(_ []byte) error
+	WriteInt(_ int) error
+	WriteInt64(_ int64) error
+	WriteFloat64(_ float64) error
+	WriteBool(_ bool) error
+	Write(_ interface{}) error
+}
+
+type Arguments func(_ ArgumentWriter) error
 
 // Scanner is implemented by an object which wants to control its value is
 // interpreted when read from Redis.

@@ -403,6 +403,46 @@ func (c *conn) writeCommand(cmd string, args []interface{}) error {
 	return nil
 }
 
+func (c *conn) writeCommandWithArguments(cmd string, numArgs int, args Arguments) error {
+	c.writeLen('*', 1+numArgs)
+	if err := c.writeString(cmd); err != nil {
+		return err
+	}
+	return args(c)
+}
+
+func (c *conn) WriteString(s string) error {
+	return c.writeString(s)
+}
+
+func (c *conn) WriteBytes(b []byte) error {
+	return c.writeBytes(b)
+}
+
+func (c *conn) WriteInt(v int) error {
+	return c.writeInt64(int64(v))
+}
+
+func (c *conn) WriteInt64(v int64) error {
+	return c.writeInt64(v)
+}
+
+func (c *conn) WriteFloat64(v float64) error {
+	return c.writeFloat64(v)
+}
+
+func (c *conn) WriteBool(v bool) error {
+	if v {
+		return c.writeString("1")
+	} else {
+		return c.writeString("0")
+	}
+}
+
+func (c *conn) Write(arg interface{}) error {
+	return c.writeArg(arg, true)
+}
+
 func (c *conn) writeArg(arg interface{}, argumentTypeOK bool) (err error) {
 	switch arg := arg.(type) {
 	case string:
@@ -596,6 +636,19 @@ func (c *conn) Send(cmd string, args ...interface{}) error {
 		c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
 	}
 	if err := c.writeCommand(cmd, args); err != nil {
+		return c.fatal(err)
+	}
+	return nil
+}
+
+func (c *conn) SendWithArguments(cmd string, numArgs int, args Arguments) error {
+	c.mu.Lock()
+	c.pending += 1
+	c.mu.Unlock()
+	if c.writeTimeout != 0 {
+		c.conn.SetWriteDeadline(time.Now().Add(c.writeTimeout))
+	}
+	if err := c.writeCommandWithArguments(cmd, numArgs, args); err != nil {
 		return c.fatal(err)
 	}
 	return nil

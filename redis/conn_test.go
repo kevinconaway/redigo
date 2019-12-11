@@ -402,6 +402,39 @@ func TestPipelineCommands(t *testing.T) {
 	}
 }
 
+func TestPipelineCommandsWithArguments(t *testing.T) {
+	c, err := redis.DialDefaultServer()
+	if err != nil {
+		t.Fatalf("error connection to database, %v", err)
+	}
+	defer c.Close()
+
+	for _, cmd := range testCommands {
+		if err := c.SendWithArguments(cmd.args[0].(string), len(cmd.args[1:]), func(w redis.ArgumentWriter) error {
+			for _, arg := range cmd.args[1:] {
+				if err := w.Write(arg); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			t.Fatalf("Send(%v) returned error %v", cmd.args, err)
+		}
+	}
+	if err := c.Flush(); err != nil {
+		t.Errorf("Flush() returned error %v", err)
+	}
+	for _, cmd := range testCommands {
+		actual, err := c.Receive()
+		if err != nil {
+			t.Fatalf("Receive(%v) returned error %v", cmd.args, err)
+		}
+		if !reflect.DeepEqual(actual, cmd.expected) {
+			t.Errorf("Receive(%v) = %v, want %v", cmd.args, actual, cmd.expected)
+		}
+	}
+}
+
 func TestBlankCommand(t *testing.T) {
 	c, err := redis.DialDefaultServer()
 	if err != nil {
